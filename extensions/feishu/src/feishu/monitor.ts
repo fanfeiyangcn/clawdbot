@@ -136,9 +136,9 @@ interface HandleMessageParams {
   account: ReturnType<typeof resolveFeishuAccount>;
   logger: ReturnType<typeof getFeishuRuntime>["logging"]["getChildLogger"];
   dmEnabled: boolean;
-  dmPolicy: string;
+  dmPolicy: "pairing" | "allowlist" | "open" | "disabled";
   allowFrom: string[];
-  groupPolicy: string;
+  groupPolicy: "open" | "allowlist" | "disabled";
   groupsConfig: Record<string, { allow?: boolean; users?: string[] }>;
   groupAllowFrom: string[];
   mentionRegexes: RegExp[];
@@ -240,7 +240,15 @@ async function handleIncomingMessage(params: HandleMessageParams): Promise<void>
 
     // For open policy, check if bot is mentioned (unless mentions are disabled)
     if (groupPolicy === "open") {
-      const isMentioned = message.mentions?.some((m) => m.name === "bot") ?? false;
+      // Check if any mention has an open_id (bot mentions have open_id starting with "ou_")
+      // or check the key field which is "@_user_1" for the first mentioned user
+      const isMentioned = message.mentions?.some((m) => {
+        // Bot mentions have an open_id in the id object
+        const hasOpenId = m.id?.open_id != null;
+        // The first mention in a message typically has key "@_user_1"
+        const isFirstMention = m.key === "@_user_1";
+        return hasOpenId || isFirstMention;
+      }) ?? false;
       const textMentioned = mentionRegexes.some((re) => re.test(text));
 
       if (!isMentioned && !textMentioned) {

@@ -107,11 +107,7 @@ function resolveReceiveIdType(to: string): "chat_id" | "open_id" | "user_id" | "
     return "user_id";
   }
 
-  // Default to chat_id for group chats, open_id for users
-  if (normalized.startsWith("oc_")) {
-    return "chat_id";
-  }
-
+  // Default to open_id for users
   return "open_id";
 }
 

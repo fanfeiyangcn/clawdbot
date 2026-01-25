@@ -29,21 +29,19 @@ export async function probeFeishu(params: {
   try {
     const client = getFeishuClient(account);
 
-    // Use a simple API call to verify credentials
-    // Get bot info to verify the app is working
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    // Use bot info endpoint to verify credentials
+    // This is the correct way to verify bot app credentials
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Request timed out")), timeoutMs);
+    });
 
     try {
-      // Try to get the bot's own info
-      const res = await client.contact.user.get({
-        path: { user_id: "me" },
-        params: { user_id_type: "open_id" },
-      });
+      // Get bot info using the correct endpoint
+      const res = await Promise.race([
+        client.bot.v3.botInfo.get(),
+        timeoutPromise,
+      ]);
 
-      clearTimeout(timeout);
-
-      // Even if we can't get user info, if we got a response the auth is working
       const elapsedMs = Date.now() - startMs;
 
       if (res.code === 0) {
@@ -51,19 +49,9 @@ export async function probeFeishu(params: {
           ok: true,
           elapsedMs,
           botInfo: {
-            appName: res.data?.user?.name,
-            openId: res.data?.user?.open_id,
+            appName: res.data?.bot?.app_name,
+            openId: res.data?.bot?.open_id,
           },
-        };
-      }
-
-      // Some error codes are expected (e.g., no permission to get user info)
-      // but the auth still worked
-      if (res.code === 99991663 || res.code === 99991664) {
-        // Permission denied - but auth worked
-        return {
-          ok: true,
-          elapsedMs,
         };
       }
 
@@ -73,7 +61,6 @@ export async function probeFeishu(params: {
         elapsedMs,
       };
     } catch (err) {
-      clearTimeout(timeout);
       throw err;
     }
   } catch (err) {

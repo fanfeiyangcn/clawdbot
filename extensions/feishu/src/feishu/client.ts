@@ -3,8 +3,18 @@ import type { ResolvedFeishuAccount } from "../types.js";
 
 const clientCache = new Map<string, lark.Client>();
 
+/**
+ * Generate a short hash of the secret for cache key invalidation.
+ * Uses first 8 chars of base64 encoding.
+ */
+function hashSecret(secret: string): string {
+  return Buffer.from(secret).toString("base64").slice(0, 8);
+}
+
 export function getFeishuClient(account: ResolvedFeishuAccount): lark.Client {
-  const cacheKey = `${account.accountId}:${account.appId}`;
+  // Include secret hash in cache key to invalidate when credentials change
+  const secretHash = account.appSecret ? hashSecret(account.appSecret) : "";
+  const cacheKey = `${account.accountId}:${account.appId}:${secretHash}`;
 
   let client = clientCache.get(cacheKey);
   if (client) return client;

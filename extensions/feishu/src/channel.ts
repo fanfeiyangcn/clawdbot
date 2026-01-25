@@ -87,7 +87,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
     polls: false,
     reactions: true,
     threads: true,
-    media: true,
+    media: false, // Media is sent as URL links, not uploaded directly
   },
   reload: { configPrefixes: ["channels.feishu"] },
   configSchema: buildChannelConfigSchema(FeishuConfigSchema),
@@ -335,6 +335,12 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
         abortSignal: ctx.abortSignal,
         accountId: account.accountId,
       });
+    },
+    stopAccount: async (ctx) => {
+      // Clear cached client when account is stopped/reloaded
+      const { clearFeishuClient } = await import("./feishu/client.js");
+      clearFeishuClient(ctx.account.accountId);
+      ctx.log?.info(`[${ctx.account.accountId}] cleared Feishu client cache`);
     },
   },
 };
