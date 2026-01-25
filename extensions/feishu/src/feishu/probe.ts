@@ -29,35 +29,33 @@ export async function probeFeishu(params: {
   try {
     const client = getFeishuClient(account);
 
-    // Use bot info endpoint to verify credentials
-    // This is the correct way to verify bot app credentials
+    // Verify credentials by getting tenant access token
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error("Request timed out")), timeoutMs);
     });
 
     try {
-      // Get bot info using the correct endpoint
-      const res = await Promise.race([
-        client.bot.v3.botInfo.get(),
+      // Get tenant access token to verify credentials
+      const token = await Promise.race([
+        client.tokenManager.getTenantAccessToken(),
         timeoutPromise,
       ]);
 
       const elapsedMs = Date.now() - startMs;
 
-      if (res.code === 0) {
+      if (token) {
         return {
           ok: true,
           elapsedMs,
           botInfo: {
-            appName: res.data?.bot?.app_name,
-            openId: res.data?.bot?.open_id,
+            appName: account.appId,
           },
         };
       }
 
       return {
         ok: false,
-        error: `API error: ${res.msg} (code: ${res.code})`,
+        error: "Failed to obtain access token",
         elapsedMs,
       };
     } catch (err) {

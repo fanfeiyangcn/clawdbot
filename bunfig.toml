@@ -1,0 +1,3 @@
+[resolve]
+# Map clawdbot/plugin-sdk to the source for dev mode
+"clawdbot/plugin-sdk" = "./src/plugin-sdk/index.ts"

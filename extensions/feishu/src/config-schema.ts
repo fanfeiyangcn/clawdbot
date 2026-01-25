@@ -21,12 +21,12 @@ const FeishuAccountConfigSchema = z.object({
   verificationToken: z.string().optional(),
   dm: FeishuDmConfigSchema.optional(),
   groupPolicy: z.enum(["open", "allowlist", "disabled"]).optional(),
-  groups: z.record(FeishuGroupConfigSchema).optional(),
+  groups: z.record(z.string(), FeishuGroupConfigSchema).optional(),
   groupAllowFrom: z.array(z.string()).optional(),
 });
 
 export const FeishuConfigSchema = FeishuAccountConfigSchema.extend({
-  accounts: z.record(FeishuAccountConfigSchema).optional(),
+  accounts: z.record(z.string(), FeishuAccountConfigSchema).optional(),
 });
 
 export type FeishuConfigSchemaType = z.infer<typeof FeishuConfigSchema>;
