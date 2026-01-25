@@ -301,6 +301,19 @@ importers:
 
   extensions/discord: {}
 
+  extensions/feishu:
+    dependencies:
+      '@larksuiteoapi/node-sdk':
+        specifier: ^1.35.0
+        version: 1.56.1
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      clawdbot:
+        specifier: workspace:*
+        version: link:../..
+
   extensions/google-antigravity-auth: {}
 
   extensions/google-gemini-cli-auth: {}
@@ -1259,6 +1272,9 @@ packages:
     os: [darwin, linux, win32]
     peerDependencies:
       apache-arrow: '>=15.0.0 <=18.1.0'
+
+  '@larksuiteoapi/node-sdk@1.56.1':
+    resolution: {integrity: sha512-/ixtyJnWOmcupKgDXz+6G6qTLMi3cNrR+LGOuq2PMwcJ6hhXTUJNyAF+ADY7ah9OoeDniGU/UJwMb2gqKdxwcA==}
 
   '@lit-labs/signals@0.2.0':
     resolution: {integrity: sha512-68plyIbciumbwKaiilhLNyhz4Vg6/+nJwDufG2xxWA9r/fUw58jxLHCAlKs+q1CE5Lmh3cZ3ShyYKnOCebEpVA==}
@@ -2965,6 +2981,9 @@ packages:
   aws4@1.13.2:
     resolution: {integrity: sha512-lHe62zvbTB5eEABUVi/AwVh0ZKY9rMMDhmm+eeyuuUQbQ3+J+fONVQOZyj+DdrvD4BY33uYniyRJ4UJIaSKAfw==}
 
+  axios@0.27.2:
+    resolution: {integrity: sha512-t+yRIyySRTp/wua5xEr+z1q60QmLq8ABsS5O9Me1AsE5dfKqgnCFzwiCZZ/cGNd1lq4/7akDWMxdhVlucjmnOQ==}
+
   axios@1.13.2:
     resolution: {integrity: sha512-VPk9ebNqPcy5lRGuSlKx752IlDatOjT9paPlm8A7yOuW2Fbvp4X3JznJtT4f0GzGLLiWE9W8onz51SqLYwzGaA==}
 
@@ -4048,6 +4067,9 @@ packages:
   lodash.debounce@4.0.8:
     resolution: {integrity: sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==}
 
+  lodash.identity@3.0.0:
+    resolution: {integrity: sha512-AupTIzdLQxJS5wIYUQlgGyk2XRTfGXA+MCghDHqZk0pzUNYvd3EESS6dkChNauNYVIutcb0dfHw1ri9Q1yPV8Q==}
+
   lodash.includes@4.3.0:
     resolution: {integrity: sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==}
 
@@ -4066,8 +4088,14 @@ packages:
   lodash.isstring@4.0.1:
     resolution: {integrity: sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==}
 
+  lodash.merge@4.6.2:
+    resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
+
   lodash.once@4.1.1:
     resolution: {integrity: sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==}
+
+  lodash.pickby@4.6.0:
+    resolution: {integrity: sha512-AZV+GsS/6ckvPOVQPXSiFFacKvKB4kOQu6ynt9wz0F3LO4R9Ij4K1ddYsIytDpSgLz88JHd9P+oaLeej5/Sl7Q==}
 
   lodash@4.17.23:
     resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
@@ -6721,6 +6749,20 @@ snapshots:
       '@lancedb/lancedb-win32-arm64-msvc': 0.23.0
       '@lancedb/lancedb-win32-x64-msvc': 0.23.0
 
+  '@larksuiteoapi/node-sdk@1.56.1':
+    dependencies:
+      axios: 0.27.2
+      lodash.identity: 3.0.0
+      lodash.merge: 4.6.2
+      lodash.pickby: 4.6.0
+      protobufjs: 7.5.4
+      qs: 6.14.1
+      ws: 8.19.0
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - utf-8-validate
+
   '@lit-labs/signals@0.2.0':
     dependencies:
       lit: 3.3.2
@@ -8670,6 +8712,13 @@ snapshots:
 
   aws4@1.13.2: {}
 
+  axios@0.27.2:
+    dependencies:
+      follow-redirects: 1.15.11(debug@4.4.3)
+      form-data: 4.0.5
+    transitivePeerDependencies:
+      - debug
+
   axios@1.13.2(debug@4.4.3):
     dependencies:
       follow-redirects: 1.15.11(debug@4.4.3)
@@ -9966,6 +10015,8 @@ snapshots:
   lodash.debounce@4.0.8:
     optional: true
 
+  lodash.identity@3.0.0: {}
+
   lodash.includes@4.3.0: {}
 
   lodash.isboolean@3.0.3: {}
@@ -9978,7 +10029,11 @@ snapshots:
 
   lodash.isstring@4.0.1: {}
 
+  lodash.merge@4.6.2: {}
+
   lodash.once@4.1.1: {}
+
+  lodash.pickby@4.6.0: {}
 
   lodash@4.17.23: {}
 

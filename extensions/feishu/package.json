@@ -1,0 +1,33 @@
+{
+  "name": "@clawdbot/feishu",
+  "version": "2026.1.25",
+  "type": "module",
+  "description": "Clawdbot Feishu/Lark channel plugin",
+  "clawdbot": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "feishu",
+      "label": "Feishu",
+      "selectionLabel": "Feishu/Lark (plugin)",
+      "docsPath": "/channels/feishu",
+      "docsLabel": "feishu",
+      "blurb": "飞书/Lark messaging; configure app credentials.",
+      "order": 75,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@clawdbot/feishu",
+      "localPath": "extensions/feishu",
+      "defaultChoice": "npm"
+    }
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.35.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "clawdbot": "workspace:*"
+  }
+}
