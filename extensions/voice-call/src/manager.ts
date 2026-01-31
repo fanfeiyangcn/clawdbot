@@ -19,6 +19,22 @@ import {
 } from "./types.js";
 import { escapeXml, mapVoiceToPolly } from "./voice-mapping.js";
 
+function resolveDefaultStoreBase(config: VoiceCallConfig, storePath?: string): string {
+  const rawOverride = storePath?.trim() || config.store?.trim();
+  if (rawOverride) return resolveUserPath(rawOverride);
+  const preferred = path.join(os.homedir(), ".openclaw", "voice-calls");
+  const candidates = [preferred].map((dir) => resolveUserPath(dir));
+  const existing =
+    candidates.find((dir) => {
+      try {
+        return fs.existsSync(path.join(dir, "calls.jsonl")) || fs.existsSync(dir);
+      } catch {
+        return false;
+      }
+    }) ?? resolveUserPath(preferred);
+  return existing;
+}
+
 /**
  * Manages voice calls: state machine, persistence, and provider coordination.
  */
@@ -44,11 +60,7 @@ export class CallManager {
   constructor(config: VoiceCallConfig, storePath?: string) {
     this.config = config;
     // Resolve store path with tilde expansion (like other config values)
-    const rawPath =
-      storePath ||
-      config.store ||
-      path.join(os.homedir(), "clawd", "voice-calls");
-    this.storePath = resolveUserPath(rawPath);
+    this.storePath = resolveDefaultStoreBase(config, storePath);
   }
 
   /**
@@ -143,7 +155,7 @@ export class CallManager {
       // For notify mode with a message, use inline TwiML with <Say>
       let inlineTwiml: string | undefined;
       if (mode === "notify" && initialMessage) {
-        const pollyVoice = mapVoiceToPolly(this.config.tts.voice);
+        const pollyVoice = mapVoiceToPolly(this.config.tts?.openai?.voice);
         inlineTwiml = this.generateNotifyTwiml(initialMessage, pollyVoice);
         console.log(
           `[voice-call] Using inline TwiML for notify mode (voice: ${pollyVoice})`,
@@ -210,11 +222,13 @@ export class CallManager {
       this.addTranscriptEntry(call, "bot", text);
 
       // Play TTS
+      const voice =
+        this.provider?.name === "twilio" ? this.config.tts?.openai?.voice : undefined;
       await this.provider.playTts({
         callId,
         providerCallId: call.providerCallId,
         text,
-        voice: this.config.tts.voice,
+        voice,
       });
 
       return { success: true };

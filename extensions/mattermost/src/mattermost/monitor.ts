@@ -2,10 +2,10 @@ import WebSocket from "ws";
 
 import type {
   ChannelAccountSnapshot,
-  ClawdbotConfig,
+  OpenClawConfig,
   ReplyPayload,
   RuntimeEnv,
-} from "clawdbot/plugin-sdk";
+} from "openclaw/plugin-sdk";
 import {
   createReplyPrefixContext,
   createTypingCallbacks,
@@ -18,7 +18,7 @@ import {
   resolveControlCommandGate,
   resolveChannelMediaMaxBytes,
   type HistoryEntry,
-} from "clawdbot/plugin-sdk";
+} from "openclaw/plugin-sdk";
 
 import { getMattermostRuntime } from "../runtime.js";
 import { resolveMattermostAccount } from "./accounts.js";
@@ -45,7 +45,7 @@ export type MonitorMattermostOpts = {
   botToken?: string;
   baseUrl?: string;
   accountId?: string;
-  config?: ClawdbotConfig;
+  config?: OpenClawConfig;
   runtime?: RuntimeEnv;
   abortSignal?: AbortSignal;
   statusSink?: (patch: Partial<ChannelAccountSnapshot>) => void;
@@ -738,7 +738,12 @@ export async function monitorMattermostProvider(opts: MonitorMattermostOpts = {}
           const mediaUrls = payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []);
           const text = core.channel.text.convertMarkdownTables(payload.text ?? "", tableMode);
           if (mediaUrls.length === 0) {
-            const chunks = core.channel.text.chunkMarkdownText(text, textLimit);
+            const chunkMode = core.channel.text.resolveChunkMode(
+              cfg,
+              "mattermost",
+              account.accountId,
+            );
+            const chunks = core.channel.text.chunkMarkdownTextWithMode(text, textLimit, chunkMode);
             for (const chunk of chunks.length > 0 ? chunks : [text]) {
               if (!chunk) continue;
               await sendMessageMattermost(to, chunk, {

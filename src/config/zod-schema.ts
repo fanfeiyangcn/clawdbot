@@ -27,7 +27,7 @@ const NodeHostSchema = z
   .strict()
   .optional();
 
-export const ClawdbotSchema = z
+export const OpenClawSchema = z
   .object({
     meta: z
       .object({
@@ -62,6 +62,7 @@ export const ClawdbotSchema = z
     diagnostics: z
       .object({
         enabled: z.boolean().optional(),
+        flags: z.array(z.string()).optional(),
         otel: z
           .object({
             enabled: z.boolean().optional(),
@@ -133,8 +134,7 @@ export const ClawdbotSchema = z
     browser: z
       .object({
         enabled: z.boolean().optional(),
-        controlUrl: z.string().optional(),
-        controlToken: z.string().optional(),
+        evaluateEnabled: z.boolean().optional(),
         cdpUrl: z.string().optional(),
         remoteCdpTimeoutMs: z.number().int().nonnegative().optional(),
         remoteCdpHandshakeTimeoutMs: z.number().int().nonnegative().optional(),
@@ -154,7 +154,7 @@ export const ClawdbotSchema = z
               .object({
                 cdpPort: z.number().int().min(1).max(65535).optional(),
                 cdpUrl: z.string().optional(),
-                driver: z.union([z.literal("clawd"), z.literal("extension")]).optional(),
+                driver: z.union([z.literal("openclaw"), z.literal("extension")]).optional(),
                 color: HexColorSchema,
               })
               .strict()
@@ -268,6 +268,13 @@ export const ClawdbotSchema = z
         wideArea: z
           .object({
             enabled: z.boolean().optional(),
+            domain: z.string().optional(),
+          })
+          .strict()
+          .optional(),
+        mdns: z
+          .object({
+            mode: z.enum(["off", "minimal", "full"]).optional(),
           })
           .strict()
           .optional(),
@@ -312,6 +319,7 @@ export const ClawdbotSchema = z
             enabled: z.boolean().optional(),
             basePath: z.string().optional(),
             allowInsecureAuth: z.boolean().optional(),
+            dangerouslyDisableDeviceAuth: z.boolean().optional(),
           })
           .strict()
           .optional(),
@@ -324,6 +332,7 @@ export const ClawdbotSchema = z
           })
           .strict()
           .optional(),
+        trustedProxies: z.array(z.string()).optional(),
         tailscale: z
           .object({
             mode: z.union([z.literal("off"), z.literal("serve"), z.literal("funnel")]).optional(),

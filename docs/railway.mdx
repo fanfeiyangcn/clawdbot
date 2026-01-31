@@ -2,7 +2,7 @@
 title: Deploy on Railway
 ---
 
-Deploy Clawdbot on Railway with a one-click template and finish setup in your browser.
+Deploy OpenClaw on Railway with a one-click template and finish setup in your browser.
 This is the easiest “no terminal on the server” path: Railway runs the Gateway for you,
 and you configure everything via the `/setup` web wizard.
 
@@ -27,11 +27,11 @@ Railway will either:
 Then open:
 
 - `https://<your-railway-domain>/setup` — setup wizard (password protected)
-- `https://<your-railway-domain>/clawdbot` — Control UI
+- `https://<your-railway-domain>/openclaw` — Control UI
 
 ## What you get
 
-- Hosted Clawdbot Gateway + Control UI
+- Hosted OpenClaw Gateway + Control UI
 - Web setup wizard at `/setup` (no terminal commands)
 - Persistent storage via Railway Volume (`/data`) so config/credentials/workspace survive redeploys
 - Backup export at `/setup/export` to migrate off Railway later
@@ -55,9 +55,10 @@ Attach a volume mounted at:
 Set these variables on the service:
 
 - `SETUP_PASSWORD` (required)
-- `CLAWDBOT_STATE_DIR=/data/.clawdbot` (recommended)
-- `CLAWDBOT_WORKSPACE_DIR=/data/workspace` (recommended)
-- `CLAWDBOT_GATEWAY_TOKEN` (recommended; treat as an admin secret)
+- `PORT=8080` (required — must match the port in Public Networking)
+- `OPENCLAW_STATE_DIR=/data/.openclaw` (recommended)
+- `OPENCLAW_WORKSPACE_DIR=/data/workspace` (recommended)
+- `OPENCLAW_GATEWAY_TOKEN` (recommended; treat as an admin secret)
 
 ## Setup flow
 
@@ -82,8 +83,9 @@ If Telegram DMs are set to pairing, the setup wizard can approve the pairing cod
 1) Go to https://discord.com/developers/applications
 2) **New Application** → choose a name
 3) **Bot** → **Add Bot**
-4) Copy the **Bot Token** and paste into `/setup`
-5) Invite the bot to your server (OAuth2 URL Generator; scopes: `bot`, `applications.commands`)
+4) **Enable MESSAGE CONTENT INTENT** under Bot → Privileged Gateway Intents (required or the bot will crash on startup)
+5) Copy the **Bot Token** and paste into `/setup`
+6) Invite the bot to your server (OAuth2 URL Generator; scopes: `bot`, `applications.commands`)
 
 ## Backups & migration
 
@@ -91,4 +93,4 @@ Download a backup at:
 
 - `https://<your-railway-domain>/setup/export`
 
-This exports your Clawdbot state + workspace so you can migrate to another host without losing config or memory.
+This exports your OpenClaw state + workspace so you can migrate to another host without losing config or memory.

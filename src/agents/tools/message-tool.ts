@@ -9,7 +9,7 @@ import {
   type ChannelMessageActionName,
 } from "../../channels/plugins/types.js";
 import { BLUEBUBBLES_GROUP_ACTIONS } from "../../channels/plugins/bluebubbles-actions.js";
-import type { ClawdbotConfig } from "../../config/config.js";
+import type { OpenClawConfig } from "../../config/config.js";
 import { loadConfig } from "../../config/config.js";
 import { GATEWAY_CLIENT_IDS, GATEWAY_CLIENT_MODES } from "../../gateway/protocol/client-info.js";
 import { normalizeTargetForProvider } from "../../infra/outbound/target-normalization.js";
@@ -59,6 +59,10 @@ function buildSendSchema(options: { includeButtons: boolean; includeCards: boole
     replyTo: Type.Optional(Type.String()),
     threadId: Type.Optional(Type.String()),
     asVoice: Type.Optional(Type.Boolean()),
+    silent: Type.Optional(Type.Boolean()),
+    quoteText: Type.Optional(
+      Type.String({ description: "Quote text for Telegram reply_parameters" }),
+    ),
     bestEffort: Type.Optional(Type.Boolean()),
     gifPlayback: Type.Optional(Type.Boolean()),
     buttons: Type.Optional(
@@ -94,6 +98,9 @@ function buildReactionSchema() {
     messageId: Type.Optional(Type.String()),
     emoji: Type.Optional(Type.String()),
     remove: Type.Optional(Type.Boolean()),
+    targetAuthor: Type.Optional(Type.String()),
+    targetAuthorUuid: Type.Optional(Type.String()),
+    groupId: Type.Optional(Type.String()),
   };
 }
 
@@ -235,7 +242,7 @@ const MessageToolSchema = buildMessageToolSchemaFromActions(AllMessageActions, {
 type MessageToolOptions = {
   agentAccountId?: string;
   agentSessionKey?: string;
-  config?: ClawdbotConfig;
+  config?: OpenClawConfig;
   currentChannelId?: string;
   currentChannelProvider?: string;
   currentThreadTs?: string;
@@ -243,7 +250,7 @@ type MessageToolOptions = {
   hasRepliedRef?: { value: boolean };
 };
 
-function buildMessageToolSchema(cfg: ClawdbotConfig) {
+function buildMessageToolSchema(cfg: OpenClawConfig) {
   const actions = listChannelMessageActions(cfg);
   const includeButtons = supportsChannelMessageButtons(cfg);
   const includeCards = supportsChannelMessageCards(cfg);
@@ -281,7 +288,7 @@ function filterActionsForContext(params: {
 }
 
 function buildMessageToolDescription(options?: {
-  config?: ClawdbotConfig;
+  config?: OpenClawConfig;
   currentChannel?: string;
   currentChannelId?: string;
 }): string {
@@ -330,7 +337,13 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
     name: "message",
     description,
     parameters: schema,
-    execute: async (_toolCallId, args) => {
+    execute: async (_toolCallId, args, signal) => {
+      // Check if already aborted before doing any work
+      if (signal?.aborted) {
+        const err = new Error("Message send aborted");
+        err.name = "AbortError";
+        throw err;
+      }
       const params = args as Record<string, unknown>;
       const cfg = options?.config ?? loadConfig();
       const action = readStringParam(params, "action", {
@@ -363,6 +376,9 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
               currentThreadTs: options?.currentThreadTs,
               replyToMode: options?.replyToMode,
               hasRepliedRef: options?.hasRepliedRef,
+              // Direct tool invocations should not add cross-context decoration.
+              // The agent is composing a message, not forwarding from another chat.
+              skipCrossContextDecoration: true,
             }
           : undefined;
 
@@ -376,6 +392,7 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
         agentId: options?.agentSessionKey
           ? resolveSessionAgentId({ sessionKey: options.agentSessionKey, config: cfg })
           : undefined,
+        abortSignal: signal,
       });
 
       const toolResult = getToolResult(result);

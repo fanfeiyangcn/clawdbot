@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import type { ClawdbotConfig } from "clawdbot/plugin-sdk";
-import { resolveMentionGatingWithBypass } from "clawdbot/plugin-sdk";
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
+import { resolveMentionGatingWithBypass } from "openclaw/plugin-sdk";
 
 import {
   type ResolvedGoogleChatAccount
@@ -30,7 +30,7 @@ export type GoogleChatRuntimeEnv = {
 
 export type GoogleChatMonitorOptions = {
   account: ResolvedGoogleChatAccount;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: GoogleChatRuntimeEnv;
   abortSignal: AbortSignal;
   webhookPath?: string;
@@ -42,7 +42,7 @@ type GoogleChatCoreRuntime = ReturnType<typeof getGoogleChatRuntime>;
 
 type WebhookTarget = {
   account: ResolvedGoogleChatAccount;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: GoogleChatRuntimeEnv;
   core: GoogleChatCoreRuntime;
   path: string;
@@ -357,24 +357,24 @@ function extractMentionInfo(annotations: GoogleChatAnnotation[], botUser?: strin
  * Resolve bot display name with fallback chain:
  * 1. Account config name
  * 2. Agent name from config
- * 3. "Clawdbot" as generic fallback
+ * 3. "OpenClaw" as generic fallback
  */
 function resolveBotDisplayName(params: {
   accountName?: string;
   agentId: string;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
 }): string {
   const { accountName, agentId, config } = params;
   if (accountName?.trim()) return accountName.trim();
   const agent = config.agents?.list?.find((a) => a.id === agentId);
   if (agent?.name?.trim()) return agent.name.trim();
-  return "Clawdbot";
+  return "OpenClaw";
 }
 
 async function processMessageWithPipeline(params: {
   event: GoogleChatEvent;
   account: ResolvedGoogleChatAccount;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: GoogleChatRuntimeEnv;
   core: GoogleChatCoreRuntime;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
@@ -684,6 +684,7 @@ async function processMessageWithPipeline(params: {
           spaceId,
           runtime,
           core,
+          config,
           statusSink,
           typingMessageName,
         });
@@ -725,10 +726,11 @@ async function deliverGoogleChatReply(params: {
   spaceId: string;
   runtime: GoogleChatRuntimeEnv;
   core: GoogleChatCoreRuntime;
+  config: OpenClawConfig;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
   typingMessageName?: string;
 }): Promise<void> {
-  const { payload, account, spaceId, runtime, core, statusSink, typingMessageName } = params;
+  const { payload, account, spaceId, runtime, core, config, statusSink, typingMessageName } = params;
   const mediaList = payload.mediaUrls?.length
     ? payload.mediaUrls
     : payload.mediaUrl
@@ -799,7 +801,16 @@ async function deliverGoogleChatReply(params: {
 
   if (payload.text) {
     const chunkLimit = account.config.textChunkLimit ?? 4000;
-    const chunks = core.channel.text.chunkMarkdownText(payload.text, chunkLimit);
+    const chunkMode = core.channel.text.resolveChunkMode(
+      config,
+      "googlechat",
+      account.accountId,
+    );
+    const chunks = core.channel.text.chunkMarkdownTextWithMode(
+      payload.text,
+      chunkLimit,
+      chunkMode,
+    );
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       try {

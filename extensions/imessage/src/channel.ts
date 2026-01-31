@@ -8,8 +8,10 @@ import {
   imessageOnboardingAdapter,
   IMessageConfigSchema,
   listIMessageAccountIds,
+  looksLikeIMessageTargetId,
   migrateBaseNameToDefaultAccount,
   normalizeAccountId,
+  normalizeIMessageMessagingTarget,
   PAIRING_APPROVED_MESSAGE,
   resolveChannelMediaMaxBytes,
   resolveDefaultIMessageAccountId,
@@ -19,7 +21,7 @@ import {
   setAccountEnabledInConfigSection,
   type ChannelPlugin,
   type ResolvedIMessageAccount,
-} from "clawdbot/plugin-sdk";
+} from "openclaw/plugin-sdk";
 
 import { getIMessageRuntime } from "./runtime.js";
 
@@ -110,14 +112,9 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount> = {
     resolveToolPolicy: resolveIMessageGroupToolPolicy,
   },
   messaging: {
+    normalizeTarget: normalizeIMessageMessagingTarget,
     targetResolver: {
-      looksLikeId: (raw) => {
-        const trimmed = raw.trim();
-        if (!trimmed) return false;
-        if (/^(imessage:|chat_id:)/i.test(trimmed)) return true;
-        if (trimmed.includes("@")) return true;
-        return /^\+?\d{3,}$/.test(trimmed);
-      },
+      looksLikeId: looksLikeIMessageTargetId,
       hint: "<handle|chat_id:ID>",
     },
   },
@@ -186,6 +183,7 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount> = {
   outbound: {
     deliveryMode: "direct",
     chunker: (text, limit) => getIMessageRuntime().channel.text.chunkText(text, limit),
+    chunkerMode: "text",
     textChunkLimit: 4000,
     sendText: async ({ cfg, to, text, accountId, deps }) => {
       const send = deps?.sendIMessage ?? getIMessageRuntime().channel.imessage.sendMessageIMessage;

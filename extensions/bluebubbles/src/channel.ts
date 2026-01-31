@@ -1,4 +1,4 @@
-import type { ChannelAccountSnapshot, ChannelPlugin, ClawdbotConfig } from "clawdbot/plugin-sdk";
+import type { ChannelAccountSnapshot, ChannelPlugin, OpenClawConfig } from "openclaw/plugin-sdk";
 import {
   applyAccountNameToChannelSection,
   buildChannelConfigSchema,
@@ -12,7 +12,7 @@ import {
   resolveBlueBubblesGroupRequireMention,
   resolveBlueBubblesGroupToolPolicy,
   setAccountEnabledInConfigSection,
-} from "clawdbot/plugin-sdk";
+} from "openclaw/plugin-sdk";
 
 import {
   listBlueBubblesAccountIds,
@@ -25,9 +25,11 @@ import { resolveBlueBubblesMessageId } from "./monitor.js";
 import { probeBlueBubbles, type BlueBubblesProbe } from "./probe.js";
 import { sendMessageBlueBubbles } from "./send.js";
 import {
+  extractHandleFromChatGuid,
   looksLikeBlueBubblesTargetId,
   normalizeBlueBubblesHandle,
   normalizeBlueBubblesMessagingTarget,
+  parseBlueBubblesTarget,
 } from "./targets.js";
 import { bluebubblesMessageActions } from "./actions.js";
 import { monitorBlueBubblesProvider, resolveWebhookPathFromConfig } from "./monitor.js";
@@ -76,13 +78,13 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
   configSchema: buildChannelConfigSchema(BlueBubblesConfigSchema),
   onboarding: blueBubblesOnboardingAdapter,
   config: {
-    listAccountIds: (cfg) => listBlueBubblesAccountIds(cfg as ClawdbotConfig),
+    listAccountIds: (cfg) => listBlueBubblesAccountIds(cfg as OpenClawConfig),
     resolveAccount: (cfg, accountId) =>
-      resolveBlueBubblesAccount({ cfg: cfg as ClawdbotConfig, accountId }),
-    defaultAccountId: (cfg) => resolveDefaultBlueBubblesAccountId(cfg as ClawdbotConfig),
+      resolveBlueBubblesAccount({ cfg: cfg as OpenClawConfig, accountId }),
+    defaultAccountId: (cfg) => resolveDefaultBlueBubblesAccountId(cfg as OpenClawConfig),
     setAccountEnabled: ({ cfg, accountId, enabled }) =>
       setAccountEnabledInConfigSection({
-        cfg: cfg as ClawdbotConfig,
+        cfg: cfg as OpenClawConfig,
         sectionKey: "bluebubbles",
         accountId,
         enabled,
@@ -90,7 +92,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
       }),
     deleteAccount: ({ cfg, accountId }) =>
       deleteAccountFromConfigSection({
-        cfg: cfg as ClawdbotConfig,
+        cfg: cfg as OpenClawConfig,
         sectionKey: "bluebubbles",
         accountId,
         clearBaseFields: ["serverUrl", "password", "name", "webhookPath"],
@@ -104,7 +106,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
       baseUrl: account.baseUrl,
     }),
     resolveAllowFrom: ({ cfg, accountId }) =>
-      (resolveBlueBubblesAccount({ cfg: cfg as ClawdbotConfig, accountId }).config.allowFrom ??
+      (resolveBlueBubblesAccount({ cfg: cfg as OpenClawConfig, accountId }).config.allowFrom ??
         []).map(
         (entry) => String(entry),
       ),
@@ -120,7 +122,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
     resolveDmPolicy: ({ cfg, accountId, account }) => {
       const resolvedAccountId = accountId ?? account.accountId ?? DEFAULT_ACCOUNT_ID;
       const useAccountPath = Boolean(
-        (cfg as ClawdbotConfig).channels?.bluebubbles?.accounts?.[resolvedAccountId],
+        (cfg as OpenClawConfig).channels?.bluebubbles?.accounts?.[resolvedAccountId],
       );
       const basePath = useAccountPath
         ? `channels.bluebubbles.accounts.${resolvedAccountId}.`
@@ -148,12 +150,64 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
       looksLikeId: looksLikeBlueBubblesTargetId,
       hint: "<handle|chat_guid:GUID|chat_id:ID|chat_identifier:ID>",
     },
+    formatTargetDisplay: ({ target, display }) => {
+      const shouldParseDisplay = (value: string): boolean => {
+        if (looksLikeBlueBubblesTargetId(value)) return true;
+        return /^(bluebubbles:|chat_guid:|chat_id:|chat_identifier:)/i.test(value);
+      };
+
+      // Helper to extract a clean handle from any BlueBubbles target format
+      const extractCleanDisplay = (value: string | undefined): string | null => {
+        const trimmed = value?.trim();
+        if (!trimmed) return null;
+        try {
+          const parsed = parseBlueBubblesTarget(trimmed);
+          if (parsed.kind === "chat_guid") {
+            const handle = extractHandleFromChatGuid(parsed.chatGuid);
+            if (handle) return handle;
+          }
+          if (parsed.kind === "handle") {
+            return normalizeBlueBubblesHandle(parsed.to);
+          }
+        } catch {
+          // Fall through
+        }
+        // Strip common prefixes and try raw extraction
+        const stripped = trimmed
+          .replace(/^bluebubbles:/i, "")
+          .replace(/^chat_guid:/i, "")
+          .replace(/^chat_id:/i, "")
+          .replace(/^chat_identifier:/i, "");
+        const handle = extractHandleFromChatGuid(stripped);
+        if (handle) return handle;
+        // Don't return raw chat_guid formats - they contain internal routing info
+        if (stripped.includes(";-;") || stripped.includes(";+;")) return null;
+        return stripped;
+      };
+
+      // Try to get a clean display from the display parameter first
+      const trimmedDisplay = display?.trim();
+      if (trimmedDisplay) {
+        if (!shouldParseDisplay(trimmedDisplay)) {
+          return trimmedDisplay;
+        }
+        const cleanDisplay = extractCleanDisplay(trimmedDisplay);
+        if (cleanDisplay) return cleanDisplay;
+      }
+
+      // Fall back to extracting from target
+      const cleanTarget = extractCleanDisplay(target);
+      if (cleanTarget) return cleanTarget;
+
+      // Last resort: return display or target as-is
+      return display?.trim() || target?.trim() || "";
+    },
   },
   setup: {
     resolveAccountId: ({ accountId }) => normalizeAccountId(accountId),
     applyAccountName: ({ cfg, accountId, name }) =>
       applyAccountNameToChannelSection({
-        cfg: cfg as ClawdbotConfig,
+        cfg: cfg as OpenClawConfig,
         channelKey: "bluebubbles",
         accountId,
         name,
@@ -168,7 +222,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
     },
     applyAccountConfig: ({ cfg, accountId, input }) => {
       const namedConfig = applyAccountNameToChannelSection({
-        cfg: cfg as ClawdbotConfig,
+        cfg: cfg as OpenClawConfig,
         channelKey: "bluebubbles",
         accountId,
         name: input.name,
@@ -193,7 +247,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
               ...(input.webhookPath ? { webhookPath: input.webhookPath } : {}),
             },
           },
-        } as ClawdbotConfig;
+        } as OpenClawConfig;
       }
       return {
         ...next,
@@ -214,7 +268,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
             },
           },
         },
-      } as ClawdbotConfig;
+      } as OpenClawConfig;
     },
   },
   pairing: {
@@ -222,7 +276,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
     normalizeAllowEntry: (entry) => normalizeBlueBubblesHandle(entry.replace(/^bluebubbles:/i, "")),
     notifyApproval: async ({ cfg, id }) => {
       await sendMessageBlueBubbles(id, PAIRING_APPROVED_MESSAGE, {
-        cfg: cfg as ClawdbotConfig,
+        cfg: cfg as OpenClawConfig,
       });
     },
   },
@@ -246,7 +300,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
         ? resolveBlueBubblesMessageId(rawReplyToId, { requireKnownShortId: true })
         : "";
       const result = await sendMessageBlueBubbles(to, text, {
-        cfg: cfg as ClawdbotConfig,
+        cfg: cfg as OpenClawConfig,
         accountId: accountId ?? undefined,
         replyToMessageGuid: replyToMessageGuid || undefined,
       });
@@ -263,7 +317,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
       };
       const resolvedCaption = caption ?? text;
       const result = await sendBlueBubblesMedia({
-        cfg: cfg as ClawdbotConfig,
+        cfg: cfg as OpenClawConfig,
         to,
         mediaUrl,
         mediaPath,
@@ -334,7 +388,7 @@ export const bluebubblesPlugin: ChannelPlugin<ResolvedBlueBubblesAccount> = {
       ctx.log?.info(`[${account.accountId}] starting provider (webhook=${webhookPath})`);
       return monitorBlueBubblesProvider({
         account,
-        config: ctx.cfg as ClawdbotConfig,
+        config: ctx.cfg as OpenClawConfig,
         runtime: ctx.runtime,
         abortSignal: ctx.abortSignal,
         statusSink: (patch) => ctx.setStatus({ accountId: ctx.accountId, ...patch }),

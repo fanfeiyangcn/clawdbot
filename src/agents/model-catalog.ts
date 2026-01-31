@@ -1,6 +1,6 @@
-import { type ClawdbotConfig, loadConfig } from "../config/config.js";
-import { resolveClawdbotAgentDir } from "./agent-paths.js";
-import { ensureClawdbotModelsJson } from "./models-config.js";
+import { type OpenClawConfig, loadConfig } from "../config/config.js";
+import { resolveOpenClawAgentDir } from "./agent-paths.js";
+import { ensureOpenClawModelsJson } from "./models-config.js";
 
 export type ModelCatalogEntry = {
   id: string;
@@ -8,6 +8,7 @@ export type ModelCatalogEntry = {
   provider: string;
   contextWindow?: number;
   reasoning?: boolean;
+  input?: Array<"text" | "image">;
 };
 
 type DiscoveredModel = {
@@ -16,6 +17,7 @@ type DiscoveredModel = {
   provider: string;
   contextWindow?: number;
   reasoning?: boolean;
+  input?: Array<"text" | "image">;
 };
 
 type PiSdkModule = typeof import("@mariozechner/pi-coding-agent");
@@ -37,7 +39,7 @@ export function __setModelCatalogImportForTest(loader?: () => Promise<PiSdkModul
 }
 
 export async function loadModelCatalog(params?: {
-  config?: ClawdbotConfig;
+  config?: OpenClawConfig;
   useCache?: boolean;
 }): Promise<ModelCatalogEntry[]> {
   if (params?.useCache === false) {
@@ -55,15 +57,16 @@ export async function loadModelCatalog(params?: {
       });
     try {
       const cfg = params?.config ?? loadConfig();
-      await ensureClawdbotModelsJson(cfg);
+      await ensureOpenClawModelsJson(cfg);
       // IMPORTANT: keep the dynamic import *inside* the try/catch.
       // If this fails once (e.g. during a pnpm install that temporarily swaps node_modules),
       // we must not poison the cache with a rejected promise (otherwise all channel handlers
       // will keep failing until restart).
       const piSdk = await importPiSdk();
-      const agentDir = resolveClawdbotAgentDir();
-      const authStorage = piSdk.discoverAuthStorage(agentDir);
-      const registry = piSdk.discoverModels(authStorage, agentDir) as
+      const agentDir = resolveOpenClawAgentDir();
+      const { join } = await import("node:path");
+      const authStorage = new piSdk.AuthStorage(join(agentDir, "auth.json"));
+      const registry = new piSdk.ModelRegistry(authStorage, join(agentDir, "models.json")) as
         | {
             getAll: () => Array<DiscoveredModel>;
           }
@@ -80,7 +83,10 @@ export async function loadModelCatalog(params?: {
             ? entry.contextWindow
             : undefined;
         const reasoning = typeof entry?.reasoning === "boolean" ? entry.reasoning : undefined;
-        models.push({ id, name, provider, contextWindow, reasoning });
+        const input = Array.isArray(entry?.input)
+          ? (entry.input as Array<"text" | "image">)
+          : undefined;
+        models.push({ id, name, provider, contextWindow, reasoning, input });
       }
 
       if (models.length === 0) {
@@ -104,4 +110,28 @@ export async function loadModelCatalog(params?: {
   })();
 
   return modelCatalogPromise;
+}
+
+/**
+ * Check if a model supports image input based on its catalog entry.
+ */
+export function modelSupportsVision(entry: ModelCatalogEntry | undefined): boolean {
+  return entry?.input?.includes("image") ?? false;
+}
+
+/**
+ * Find a model in the catalog by provider and model ID.
+ */
+export function findModelInCatalog(
+  catalog: ModelCatalogEntry[],
+  provider: string,
+  modelId: string,
+): ModelCatalogEntry | undefined {
+  const normalizedProvider = provider.toLowerCase().trim();
+  const normalizedModelId = modelId.toLowerCase().trim();
+  return catalog.find(
+    (entry) =>
+      entry.provider.toLowerCase() === normalizedProvider &&
+      entry.id.toLowerCase() === normalizedModelId,
+  );
 }

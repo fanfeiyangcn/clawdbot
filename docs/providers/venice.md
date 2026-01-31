@@ -1,6 +1,21 @@
-# Venice AI Provider
+---
+summary: "Use Venice AI privacy-focused models in OpenClaw"
+read_when:
+  - You want privacy-focused inference in OpenClaw
+  - You want Venice AI setup guidance
+---
+# Venice AI (Venice highlight)
+
+**Venice** is our highlight Venice setup for privacy-first inference with optional anonymized access to proprietary models.
 
 Venice AI provides privacy-focused AI inference with support for uncensored models and access to major proprietary models through their anonymized proxy. All inference is private by default—no training on your data, no logging.
+
+## Why Venice in OpenClaw
+
+- **Private inference** for open-source models (no logging).
+- **Uncensored models** when you need them.
+- **Anonymized access** to proprietary models (Opus/GPT/Gemini) when quality matters.
+- OpenAI-compatible `/v1` endpoints.
 
 ## Privacy Modes
 
@@ -20,6 +35,7 @@ Venice offers two privacy levels — understanding this is key to choosing your 
 - **Streaming**: ✅ Supported on all models
 - **Function calling**: ✅ Supported on select models (check model capabilities)
 - **Vision**: ✅ Supported on models with vision capability
+- **No hard rate limits**: Fair-use throttling may apply for extreme usage
 
 ## Setup
 
@@ -29,7 +45,7 @@ Venice offers two privacy levels — understanding this is key to choosing your 
 2. Go to **Settings → API Keys → Create new key**
 3. Copy your API key (format: `vapi_xxxxxxxxxxxx`)
 
-### 2. Configure Clawdbot
+### 2. Configure OpenClaw
 
 **Option A: Environment Variable**
 
@@ -40,7 +56,7 @@ export VENICE_API_KEY="vapi_xxxxxxxxxxxx"
 **Option B: Interactive Setup (Recommended)**
 
 ```bash
-clawdbot onboard --auth-choice venice-api-key
+openclaw onboard --auth-choice venice-api-key
 ```
 
 This will:
@@ -52,43 +68,51 @@ This will:
 **Option C: Non-interactive**
 
 ```bash
-clawdbot onboard --non-interactive \
+openclaw onboard --non-interactive \
   --auth-choice venice-api-key \
-  --token "vapi_xxxxxxxxxxxx" \
-  --token-provider venice
+  --venice-api-key "vapi_xxxxxxxxxxxx"
 ```
 
 ### 3. Verify Setup
 
 ```bash
-clawdbot chat --model venice/llama-3.3-70b "Hello, are you working?"
+openclaw chat --model venice/llama-3.3-70b "Hello, are you working?"
 ```
 
 ## Model Selection
 
-After setup, Clawdbot shows all available Venice models. Pick based on your needs:
+After setup, OpenClaw shows all available Venice models. Pick based on your needs:
 
-- **Privacy**: Choose "private" models for fully private inference
-- **Capability**: Choose "anonymized" models to access Claude, GPT, Gemini via Venice's proxy
+- **Default (our pick)**: `venice/llama-3.3-70b` for private, balanced performance.
+- **Best overall quality**: `venice/claude-opus-45` for hard jobs (Opus remains the strongest).
+- **Privacy**: Choose "private" models for fully private inference.
+- **Capability**: Choose "anonymized" models to access Claude, GPT, Gemini via Venice's proxy.
 
 Change your default model anytime:
 
 ```bash
-clawdbot models set venice/claude-opus-45
-clawdbot models set venice/llama-3.3-70b
+openclaw models set venice/claude-opus-45
+openclaw models set venice/llama-3.3-70b
 ```
 
 List all available models:
 
 ```bash
-clawdbot models list | grep venice
+openclaw models list | grep venice
 ```
+
+## Configure via `openclaw configure`
+
+1. Run `openclaw configure`
+2. Select **Model/auth**
+3. Choose **Venice AI**
 
 ## Which Model Should I Use?
 
 | Use Case | Recommended Model | Why |
 |----------|-------------------|-----|
 | **General chat** | `llama-3.3-70b` | Good all-around, fully private |
+| **Best overall quality** | `claude-opus-45` | Opus remains the strongest for hard tasks |
 | **Privacy + Claude quality** | `claude-opus-45` | Best reasoning via anonymized proxy |
 | **Coding** | `qwen3-coder-480b-a35b-instruct` | Code-optimized, 262k context |
 | **Vision tasks** | `qwen3-vl-235b-a22b` | Best private vision model |
@@ -135,7 +159,7 @@ clawdbot models list | grep venice
 
 ## Model Discovery
 
-Clawdbot automatically discovers models from the Venice API when `VENICE_API_KEY` is set. If the API is unreachable, it falls back to a static catalog.
+OpenClaw automatically discovers models from the Venice API when `VENICE_API_KEY` is set. If the API is unreachable, it falls back to a static catalog.
 
 The `/models` endpoint is public (no auth needed for listing), but inference requires a valid API key.
 
@@ -168,19 +192,19 @@ Venice uses a credit-based system. Check [venice.ai/pricing](https://venice.ai/p
 
 ```bash
 # Use default private model
-clawdbot chat --model venice/llama-3.3-70b
+openclaw chat --model venice/llama-3.3-70b
 
 # Use Claude via Venice (anonymized)
-clawdbot chat --model venice/claude-opus-45
+openclaw chat --model venice/claude-opus-45
 
 # Use uncensored model
-clawdbot chat --model venice/venice-uncensored
+openclaw chat --model venice/venice-uncensored
 
 # Use vision model with image
-clawdbot chat --model venice/qwen3-vl-235b-a22b
+openclaw chat --model venice/qwen3-vl-235b-a22b
 
 # Use coding model
-clawdbot chat --model venice/qwen3-coder-480b-a35b-instruct
+openclaw chat --model venice/qwen3-coder-480b-a35b-instruct
 ```
 
 ## Troubleshooting
@@ -189,18 +213,48 @@ clawdbot chat --model venice/qwen3-coder-480b-a35b-instruct
 
 ```bash
 echo $VENICE_API_KEY
-clawdbot models list | grep venice
+openclaw models list | grep venice
 ```
 
 Ensure the key starts with `vapi_`.
 
 ### Model not available
 
-The Venice model catalog updates dynamically. Run `clawdbot models list` to see currently available models. Some models may be temporarily offline.
+The Venice model catalog updates dynamically. Run `openclaw models list` to see currently available models. Some models may be temporarily offline.
 
 ### Connection issues
 
 Venice API is at `https://api.venice.ai/api/v1`. Ensure your network allows HTTPS connections.
+
+## Config file example
+
+```json5
+{
+  env: { VENICE_API_KEY: "vapi_..." },
+  agents: { defaults: { model: { primary: "venice/llama-3.3-70b" } } },
+  models: {
+    mode: "merge",
+    providers: {
+      venice: {
+        baseUrl: "https://api.venice.ai/api/v1",
+        apiKey: "${VENICE_API_KEY}",
+        api: "openai-completions",
+        models: [
+          {
+            id: "llama-3.3-70b",
+            name: "Llama 3.3 70B",
+            reasoning: false,
+            input: ["text"],
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            contextWindow: 131072,
+            maxTokens: 8192
+          }
+        ]
+      }
+    }
+  }
+}
+```
 
 ## Links
 

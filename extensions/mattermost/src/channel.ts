@@ -8,7 +8,7 @@ import {
   normalizeAccountId,
   setAccountEnabledInConfigSection,
   type ChannelPlugin,
-} from "clawdbot/plugin-sdk";
+} from "openclaw/plugin-sdk";
 
 import { MattermostConfigSchema } from "./config-schema.js";
 import { resolveMattermostGroupRequireMention } from "./group-mentions.js";
@@ -158,6 +158,7 @@ export const mattermostPlugin: ChannelPlugin<ResolvedMattermostAccount> = {
   outbound: {
     deliveryMode: "direct",
     chunker: (text, limit) => getMattermostRuntime().channel.text.chunkMarkdownText(text, limit),
+    chunkerMode: "markdown",
     textChunkLimit: 4000,
     resolveTarget: ({ to }) => {
       const trimmed = to?.trim();
